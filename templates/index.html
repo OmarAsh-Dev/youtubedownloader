@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1><span id="you">You</span><span id="tube">Tube</span> <span>Downloader</span></h1>
+        <div class="input-group">
+            <input type="text" id="url" placeholder="Enter YouTube video URL">
+            <button id="download-btn">Download</button>
+        </div>
+        <div class="spinner" id="spinner"></div> <!-- Spinner for loading animation -->
+        <div id="output"></div>
+        <div id="video-preview" class="videoprev">
+            <!-- Video preview will be injected here -->
+        </div>
+        <div class="container2">
+            <h2>How to use?</h2>
+            <p>1. Copy the URL of the YouTube video you want to download.</p>
+            <p>2. Paste the URL in the input field above.</p>
+            <p>3. Click the "Download" button.</p>
+            <p>4. Wait for the download link to appear.</p>
+            <p>5. Click the download link to download the video.</p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('download-btn').addEventListener('click', async () => {
+            const url = document.getElementById('url').value;
+            const spinner = document.getElementById('spinner');
+
+            if (!url) {
+                alert('Please enter a URL.');
+                return;
+            }
+
+            // Show spinner while processing
+            spinner.style.display = 'block';
+
+            // Display video preview
+            try {
+                const response = await fetch(`/fetch-preview?url=${encodeURIComponent(url)}`);
+                if (!response.ok) {
+                    throw new Error('Unable to fetch video preview');
+                }
+                const data = await response.json();
+                const videoPreview = document.getElementById('video-preview');
+                videoPreview.innerHTML = `
+                    <iframe width="700" height="315" src="https://www.youtube.com/embed/${data.video_id}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                `;
+            } catch (error) {
+                console.error('Error fetching video preview:', error);
+                document.getElementById('video-preview').textContent =
+                    `Error fetching video preview: ${error.message}`;
+            } finally {
+                // Hide spinner after fetching preview
+                spinner.style.display = 'none';
+            }
+
+            // Show spinner while downloading
+            spinner.style.display = 'block';
+
+            // Download video
+            try {
+                const response = await fetch(`/download`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url
+                    }),
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+
+                const data = await response.json();
+
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/downloads/${encodeURIComponent(data.file)}`;
+                downloadLink.textContent = 'Click here to download your video';
+                document.getElementById('output').innerHTML = '';
+                document.getElementById('output').appendChild(downloadLink);
+
+            } catch (error) {
+                console.error('Error downloading video:', error);
+                document.getElementById('output').textContent = `Error downloading video: ${error.message}`;
+            } finally {
+                // Hide spinner after downloading
+                spinner.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>
