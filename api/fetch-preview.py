@@ -1,10 +1,7 @@
-from flask import Flask, request, jsonify
+from flask import Request, jsonify
 import yt_dlp
 
-app = Flask(__name__)
-
-@app.route("/", methods=["GET"])
-def fetch_preview():
+def handler(request: Request):
     url = request.args.get("url")
     if not url:
         return jsonify({"error": "No URL provided"}), 400
