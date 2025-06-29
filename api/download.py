@@ -1,18 +1,31 @@
-from flask import Request, send_file, jsonify
+import json
 import yt_dlp
 import tempfile
 import os
 import shutil
+import base64
 
-def handler(request: Request):
+def handler(request):
     if request.method != "POST":
-        return jsonify({"error": "Invalid method"}), 405
+        return {
+            "statusCode": 405,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Invalid method"})
+        }
 
-    data = request.get_json()
-    url = data.get("url") if data else None
+    try:
+        body = json.loads(request.body.decode())
+    except:
+        body = None
+
+    url = body.get("url") if body else None
 
     if not url:
-        return jsonify({"error": "URL must be provided"}), 400
+        return {
+            "statusCode": 400,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "URL must be provided"})
+        }
 
     temp_dir = tempfile.mkdtemp()
     try:
@@ -28,15 +41,25 @@ def handler(request: Request):
             file_path = ydl.prepare_filename(info)
             filename = os.path.basename(file_path)
 
-        return send_file(
-            file_path,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="video/mp4"
-        )
+        # Read the file and base64 encode
+        with open(file_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "filename": filename,
+                "file_content": encoded
+            })
+        }
 
     except Exception as e:
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": f"Server error: {str(e)}"})
+        }
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
