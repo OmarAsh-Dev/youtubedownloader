@@ -34,7 +34,7 @@
       output.textContent = "Fetching video preview...";
 
       try {
-        // Preview
+        // Fetch video preview
         const resPreview = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
         if (!resPreview.ok) throw new Error("Could not fetch preview");
         const dataPreview = await resPreview.json();
@@ -44,10 +44,10 @@
 
         output.textContent = "Downloading video...";
 
-        // Download
+        // Start download
         const res = await fetch("/api/download", {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url })
         });
 
@@ -56,11 +56,20 @@
           throw new Error(error.error || "Download failed");
         }
 
-        const blob = await res.blob();
+        const data = await res.json();
+        // Convert base64 to blob
+        const byteCharacters = atob(data.file_content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "video/mp4" });
         const dlUrl = URL.createObjectURL(blob);
+
         const a = document.createElement("a");
         a.href = dlUrl;
-        a.download = "video.mp4";
+        a.download = data.filename || `${dataPreview.video_id}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

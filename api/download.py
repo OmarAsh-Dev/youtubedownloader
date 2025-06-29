@@ -12,54 +12,33 @@ def handler(request):
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "Invalid method"})
         }
-
-    try:
-        body = json.loads(request.body.decode())
-    except:
-        body = None
-
-    url = body.get("url") if body else None
-
+    body = json.loads(request.body.decode())
+    url = body.get("url")
     if not url:
         return {
             "statusCode": 400,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "URL must be provided"})
         }
-
     temp_dir = tempfile.mkdtemp()
     try:
-        ydl_opts = {
+        opts = {
             "format": "best[ext=mp4]",
             "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
             "quiet": True,
-            "no_warnings": True,
         }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            file_path = ydl.prepare_filename(info)
-            filename = os.path.basename(file_path)
-
-        # Read the file and base64 encode
-        with open(file_path, "rb") as f:
+            filepath = ydl.prepare_filename(info)
+        with open(filepath, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({
-                "filename": filename,
+                "filename": os.path.basename(filepath),
                 "file_content": encoded
             })
         }
-
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": f"Server error: {str(e)}"})
-        }
-
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
