@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>YouTube Downloader</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles/style.css" />
 </head>
 <body>
   <div class="container">
@@ -34,7 +34,7 @@
       output.textContent = "Fetching video preview...";
 
       try {
-        // Fetch video preview
+        // Fetch preview
         const resPreview = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
         if (!resPreview.ok) throw new Error("Could not fetch preview");
         const dataPreview = await resPreview.json();
@@ -44,10 +44,10 @@
 
         output.textContent = "Downloading video...";
 
-        // Start download
+        // Download
         const res = await fetch("/api/download", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ url })
         });
 
@@ -56,20 +56,11 @@
           throw new Error(error.error || "Download failed");
         }
 
-        const data = await res.json();
-        // Convert base64 to blob
-        const byteCharacters = atob(data.file_content);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "video/mp4" });
+        const blob = await res.blob();
         const dlUrl = URL.createObjectURL(blob);
-
         const a = document.createElement("a");
         a.href = dlUrl;
-        a.download = data.filename || `${dataPreview.video_id}.mp4`;
+        a.download = "video.mp4";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

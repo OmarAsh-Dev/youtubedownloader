@@ -1,0 +1,7 @@
+{
+  "name": "youtubedownloader",
+  "version": "1.0.0",
+  "dependencies": {
+    "ytdl-core": "^4.11.4"
+  }
+}
