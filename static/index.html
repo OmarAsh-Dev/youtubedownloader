@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Downloader</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1><span id="you">You</span><span id="tube">Tube</span> Downloader</h1>
+    <div class="input-group">
+      <input type="text" id="url" placeholder="Enter YouTube video URL">
+      <button id="download-btn">Download</button>
+    </div>
+    <div id="output"></div>
+    <div id="video-preview" class="videoprev"></div>
+  </div>
+
+  <script>
+    document.getElementById("download-btn").addEventListener("click", async () => {
+      const urlInput = document.getElementById("url");
+      const output = document.getElementById("output");
+      const videoPreview = document.getElementById("video-preview");
+      const btn = document.getElementById("download-btn");
+
+      const url = urlInput.value.trim();
+      if (!url) {
+        alert("Please enter a URL.");
+        return;
+      }
+
+      btn.disabled = true;
+      output.textContent = "Fetching video preview...";
+
+      try {
+        // Preview
+        const resPreview = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
+        if (!resPreview.ok) throw new Error("Could not fetch preview");
+        const dataPreview = await resPreview.json();
+        videoPreview.innerHTML = `
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/${dataPreview.video_id}" frameborder="0" allowfullscreen></iframe>
+        `;
+
+        output.textContent = "Downloading video...";
+
+        // Download
+        const res = await fetch("/api/download", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ url })
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Download failed");
+        }
+
+        const blob = await res.blob();
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = dlUrl;
+        a.download = "video.mp4";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(dlUrl);
+
+        output.textContent = "Download completed!";
+      } catch (err) {
+        console.error(err);
+        output.textContent = `Error: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
