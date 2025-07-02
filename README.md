@@ -8,9 +8,13 @@ Supports selecting video quality and downloading audio-only MP3.
 ## ✨ Features
 
 ✅ Download YouTube videos in selectable resolutions (360p, 720p, 1080p, etc.)
+<br>
 ✅ Download audio-only as MP3
+<br>
 ✅ Progress bar during download
+<br>
 ✅ Video preview embedded before download
+<br>
 ✅ Clean, responsive frontend UI
 
 ---
