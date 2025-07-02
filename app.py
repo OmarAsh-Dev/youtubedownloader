@@ -1,10 +1,26 @@
-from flask import Flask, request, jsonify, send_file, render_template
-import yt_dlp
+from flask import Flask, render_template, request, jsonify, send_file
+from yt_dlp import YoutubeDL
+import threading
 import tempfile
-import os
 import shutil
+import os
+import uuid
+import time
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
+downloads = {}
+
+FFMPEG_PATH = r"C:\ffmpeg-7.1.1-essentials_build\bin\ffmpeg.exe"
+
+
+def strip_playlist_param(url):
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+    query.pop("list", None)
+    cleaned_query = urlencode(query, doseq=True)
+    cleaned_url = parsed._replace(query=cleaned_query)
+    return urlunparse(cleaned_url)
 
 
 @app.route("/")
@@ -12,53 +28,124 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/fetch-preview", methods=["GET"])
+@app.route("/api/fetch-preview")
 def fetch_preview():
     url = request.args.get("url")
-    if not url:
-        return jsonify({"error": "No URL provided"}), 400
+    url = strip_playlist_param(url)
 
-    try:
-        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
-            info = ydl.extract_info(url, download=False)
-            video_id = info.get("id")
-        return jsonify({"video_id": video_id})
-    except Exception as e:
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+    ydl_opts = {"quiet": True, "no_warnings": True}
+    formats = []
+
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        if info.get("_type") == "playlist" and info.get("entries"):
+            info = info["entries"][0]
+
+        video_id = info.get("id")
+        all_formats = info.get("formats", [])
+
+        resolutions = set()
+        for f in all_formats:
+            if f.get("vcodec") != "none":
+                height = f.get("height")
+                if height:
+                    resolutions.add(str(height))
+
+        resolutions = sorted(resolutions, key=lambda h: int(h))
+        resolutions.append("audio")
+
+    return jsonify({"video_id": video_id, "formats": resolutions})
 
 
-@app.route("/api/download", methods=["POST"])
-def download():
-    url = request.json.get("url")
-    if not url:
-        return jsonify({"error": "URL must be provided"}), 400
+@app.route("/api/start-download", methods=["POST"])
+def start_download():
+    data = request.get_json()
+    url = data.get("url")
+    quality = data.get("quality")
 
+    url = strip_playlist_param(url)
+
+    with YoutubeDL({"quiet": True, "no_warnings": True, "extract_flat": True}) as ydl:
+        info = ydl.extract_info(url, download=False)
+        if info.get("_type") == "playlist" and info.get("entries"):
+            first = info["entries"][0]
+            url = f"https://www.youtube.com/watch?v={first['id']}"
+
+    download_id = str(uuid.uuid4())
     temp_dir = tempfile.mkdtemp()
+    downloads[download_id] = {"progress": 0, "status": "starting", "file_path": None}
+
+    def progress_hook(d):
+        if d["status"] == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate") or 1
+            downloaded = d.get("downloaded_bytes", 0)
+            downloads[download_id]["progress"] = int(downloaded / total * 100)
+            downloads[download_id]["status"] = "downloading"
+
+    def download():
+        try:
+            fmt = "bestaudio" if quality == "audio" else f"bestvideo[height={quality}]+bestaudio/best"
+            ydl_opts = {
+                "format": fmt,
+                "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
+                "progress_hooks": [progress_hook],
+                "ffmpeg_location": FFMPEG_PATH,
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": True,
+                "merge_output_format": "mp4",
+            }
+            with YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+            time.sleep(1)  # Give time for disk write completion
+
+            for file in os.listdir(temp_dir):
+                path = os.path.join(temp_dir, file)
+                if os.path.isfile(path) and os.path.getsize(path) > 1000:  # At least 1KB
+                    downloads[download_id]["file_path"] = path
+                    downloads[download_id]["status"] = "done"
+                    return
+
+            downloads[download_id]["status"] = "error: file not written"
+        except Exception as e:
+            downloads[download_id]["status"] = f"error: {e}"
+
+    threading.Thread(target=download, daemon=True).start()
+    return jsonify({"download_id": download_id})
+
+
+@app.route("/api/progress/<download_id>")
+def get_progress(download_id):
+    data = downloads.get(download_id)
+    if not data:
+        return jsonify({"status": "error: download not found"}), 404
+    return jsonify({"status": data["status"], "progress": data["progress"]})
+
+
+@app.route("/api/get-file/<download_id>")
+def get_file(download_id):
+    data = downloads.get(download_id)
+    if not data:
+        return jsonify({"error": "Download ID not found"}), 404
+
+    file_path = data.get("file_path")
+
+    # Wait up to 5 seconds for file finalization
+    wait_time = 0
+    while (not file_path or not os.path.exists(file_path) or os.path.getsize(file_path) < 1000) and wait_time < 10:
+        time.sleep(0.5)
+        wait_time += 0.5
+        file_path = data.get("file_path")
+
+    if not file_path or not os.path.exists(file_path) or os.path.getsize(file_path) < 1000:
+        return jsonify({"error": "File not ready. Please try again."}), 400
+
     try:
-        ydl_opts = {
-            "format": "best[ext=mp4]",
-            "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
-            "quiet": True,
-            "no_warnings": True,
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            file_path = ydl.prepare_filename(info)
-            filename = os.path.basename(file_path)
-
-        return send_file(
-            file_path,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="video/mp4"
-        )
-
-    except Exception as e:
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
-
+        return send_file(file_path, as_attachment=True)
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(os.path.dirname(file_path), ignore_errors=True)
+        downloads.pop(download_id, None)
 
 
 if __name__ == "__main__":

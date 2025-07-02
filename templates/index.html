@@ -4,89 +4,152 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>YouTube Downloader</title>
-  <meta name="description" content="Download YouTube videos quickly and easily with this free YouTube video downloader. Paste a link and save videos in MP4 format.">
-  
-  <meta name="keywords" content="YouTube downloader, download YouTube videos, save YouTube MP4, free video downloader">
-  
-  <!-- Open Graph tags for social sharing -->
-  <meta property="og:title" content="YouTube Downloader" />
-  <meta property="og:description" content="Free YouTube video downloader to save videos in MP4 format easily." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://your-domain.com/" />
-  <meta property="og:image" content="https://your-domain.com/static/thumbnail.jpg" />
-
-
   <link rel="stylesheet" href="{{ url_for('static', filename='styles/style.css') }}">
-
+  <link rel="icon" href="{{ url_for('static', filename='/play.png') }}" type="image/png">
 </head>
 <body>
   <div class="container">
-    <h1><span id="you">You</span><span id="tube">Tube</span> Downloader</h1>
+    <h1><span id="you">You</span><span id="tube">Tube</span> <span id="you">Downloader</span></h1>
     <div class="input-group">
       <input type="text" id="url" placeholder="Enter YouTube video URL">
+      <select id="quality-select" style="display:none; margin-left:0px;"></select>
       <button id="download-btn">Download</button>
     </div>
     <div id="output"></div>
+    <div id="progress-container" style="display:none; margin-top:20px;">
+      <div style="background:#444; width:100%; height:20px; border-radius:5px;">
+        <div id="progress-bar" style="background:#ff0000; width:0%; height:100%; border-radius:5px;"></div>
+      </div>
+      <div id="progress-text" style="color:#fff; margin-top:5px;">0%</div>
+    </div>
     <div id="video-preview" class="videoprev"></div>
   </div>
 
-  <script>
-    document.getElementById("download-btn").addEventListener("click", async () => {
-      const urlInput = document.getElementById("url");
-      const output = document.getElementById("output");
-      const videoPreview = document.getElementById("video-preview");
-      const btn = document.getElementById("download-btn");
+<script>
+const btn = document.getElementById("download-btn");
+const urlInput = document.getElementById("url");
+const qualitySelect = document.getElementById("quality-select");
 
-      const url = urlInput.value.trim();
-      if (!url) {
-        alert("Please enter a URL.");
-        return;
-      }
+btn.disabled = true;
 
-      btn.disabled = true;
-      output.textContent = "Fetching video preview...";
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
 
-      try {
-        // Fetch preview
-        const resPreview = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
-        if (!resPreview.ok) throw new Error("Could not fetch preview");
-        const dataPreview = await resPreview.json();
-        videoPreview.innerHTML = `
-          <iframe width="560" height="315" src="https://www.youtube.com/embed/${dataPreview.video_id}" frameborder="0" allowfullscreen></iframe>
-        `;
+const fetchPreviewDebounced = debounce(async () => {
+  const url = urlInput.value.trim();
+  if (!url) return;
 
-        output.textContent = "Downloading video...";
+  const output = document.getElementById("output");
+  const videoPreview = document.getElementById("video-preview");
 
-        // Download
-        const res = await fetch("/api/download", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ url })
-        });
+  btn.disabled = true;
+  output.textContent = "Fetching preview...";
+  try {
+    const resPreview = await fetch(`/api/fetch-preview?url=${encodeURIComponent(url)}`);
+    const data = await resPreview.json();
+    if (!resPreview.ok) throw new Error(data.error || "Preview failed");
 
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.error || "Download failed");
-        }
+    videoPreview.innerHTML = `
+      <div class="iframe-wrapper">
+        <iframe src="https://www.youtube.com/embed/${data.video_id}" frameborder="0" allowfullscreen></iframe>
+      </div>
+    `;
 
-        const blob = await res.blob();
-        const dlUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = dlUrl;
-        a.download = "video.mp4";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(dlUrl);
+    const resolutions = data.formats.filter(f => f !== "audio");
+    const audio = data.formats.includes("audio");
+    resolutions.sort((a, b) => parseInt(b) - parseInt(a));
 
-        output.textContent = "Download completed!";
-      } catch (err) {
-        console.error(err);
-        output.textContent = `Error: ${err.message}`;
-      } finally {
-        btn.disabled = false;
-      }
+    qualitySelect.innerHTML = "";
+    resolutions.forEach(format => {
+      const opt = document.createElement("option");
+      opt.value = format;
+      opt.textContent = `${format}p`;
+      qualitySelect.appendChild(opt);
     });
-  </script>
+    if (audio) {
+      const opt = document.createElement("option");
+      opt.value = "audio";
+      opt.textContent = "Audio Only (MP3)";
+      qualitySelect.appendChild(opt);
+    }
+    qualitySelect.style.display = "inline-block";
+
+    output.textContent = "Ready to download.";
+    btn.disabled = false;
+  } catch (err) {
+    console.error(err);
+    output.textContent = `Error: ${err.message}`;
+    btn.disabled = true;
+  }
+}, 600);
+
+urlInput.addEventListener("input", fetchPreviewDebounced);
+
+btn.addEventListener("click", async () => {
+  const url = urlInput.value.trim();
+  if (!url) return alert("Please enter a URL.");
+
+  const output = document.getElementById("output");
+  const progressContainer = document.getElementById("progress-container");
+  const progressBar = document.getElementById("progress-bar");
+  const progressText = document.getElementById("progress-text");
+
+  btn.disabled = true;
+  output.textContent = "Starting download...";
+  progressContainer.style.display = "block";
+  progressBar.style.width = "0%";
+  progressText.textContent = "0%";
+
+  try {
+    const resStart = await fetch("/api/start-download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, quality: qualitySelect.value })
+    });
+    const { download_id } = await resStart.json();
+    if (!download_id) throw new Error("Failed to start download.");
+
+    let finished = false;
+    while (!finished) {
+      const resProgress = await fetch(`/api/progress/${download_id}`);
+      const prog = await resProgress.json();
+      if (prog.status.startsWith("error")) throw new Error(prog.status);
+
+      const pct = Math.max(0, Math.min(100, prog.progress || 0));
+      progressBar.style.width = `${pct}%`;
+      progressText.textContent = `${pct}%`;
+
+      if (prog.status === "done") finished = true;
+      else await new Promise(r => setTimeout(r, 1000));
+    }
+
+    output.textContent = "Downloading...";
+    const resFile = await fetch(`/api/get-file/${download_id}`);
+    const blob = await resFile.blob();
+    const dlUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = dlUrl;
+    a.download = qualitySelect.value === "audio" ? "audio.mp3" : "video.mp4";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(dlUrl);
+
+    output.textContent = "Download complete!";
+  } catch (err) {
+    console.error(err);
+    output.textContent = `Error: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    progressContainer.style.display = "none";
+  }
+});
+</script>
+
 </body>
 </html>

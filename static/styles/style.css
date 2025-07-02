@@ -1,4 +1,3 @@
-
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -14,38 +13,37 @@ body {
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-.container2{
-    max-width: 525px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #282828;
-    border-radius: 5px;
-    color: #fff;
-    margin-top: 50px;
-    margin-top: -20px;
-}
-.videoprev{
+
+.videoprev {
     display: flex;
     justify-content: center;
-    max-width: 700px;
-    margin: 0 ;
+    align-items: center;
+    width: 100%;
     padding: 20px;
+    margin-top: 20px;
     background-color: #282828;
     border-radius: 5px;
     color: #fff;
-    margin-top: 50px;
+    box-sizing: border-box;
+}
+
+.videoprev iframe {
+    width: 100%;
+    height: auto;
+    border: none;
 }
 
 h1 {
     font-size: 24px;
     margin-bottom: 10px;
+    text-align: center;
 }
 
-#you{
+#you {
     color: #fff;
 }
 
-#tube{
+#tube {
     color: #ff0000;
 }
 
@@ -55,41 +53,75 @@ span {
 
 .input-group {
     display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 20px;
 }
 
-input {
-    flex: 1;
-    padding: 10px;
-    background-color: #303030;
-    border: 1px solid #ccc;
-    border-radius: 5px 0 0 5px;
+.input-group input,
+.input-group select,
+.input-group button {
     font-size: 16px;
-    color: #ffffff;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
 }
 
-button {
-    padding: 10px 20px;
-    border: 1px solid #ff0000;
+.input-group input {
+    flex: 2 1 200px;
+    background-color: #303030;
+    color: #ffffff;
+    border: 1px solid #ccc;
+}
+
+.input-group select {
+    flex: 1 1 100px;
+    background-color: #303030;
+    color: #ffffff;
+    border: 1px solid #ccc;
+}
+
+.input-group button {
+    flex: 0 0 auto;
     background-color: #ff0000;
     color: #fff;
-    border-radius: 0 5px 5px 0;
-    font-size: 16px;
+    border: 1px solid #ff0000;
     cursor: pointer;
 }
 
-button:hover {
+.input-group button:hover {
     background-color: #880505;
 }
-
-select {
-    padding: 10px;
-    font-size: 16px;
+.iframe-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    overflow: hidden;
+    border-radius: 8px;
 }
+
+.iframe-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
 
 #output {
     margin-top: 20px;
     color: #fff;
+    text-align: center;
+}
+
+#progress-container {
+    width: 100%;
+}
+
+#progress-bar {
+    transition: width 0.3s ease;
 }
 
 a {
@@ -105,4 +137,33 @@ a {
 
 a:hover {
     background-color: #880505;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .input-group {
+        flex-direction: column;
+    }
+
+    .input-group input,
+    .input-group select,
+    .input-group button {
+        flex: none;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        font-size: 15px;
+        padding: 8px;
+    }
+
+    h1 {
+        font-size: 20px;
+    }
+}
+
+.input-group button:disabled {
+  background-color: #555;
+  border-color: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
