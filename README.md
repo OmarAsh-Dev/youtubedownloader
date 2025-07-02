@@ -20,7 +20,7 @@ Supports selecting video quality and downloading audio-only MP3.
 ### 1️⃣ Clone the repository
 
 ```bash
-(https://github.com/OmarAsh-Dev/youtubedownloader.git)
+git clone https://github.com/OmarAsh-Dev/youtubedownloader.git
 cd youtubedownloader
 ```
 
