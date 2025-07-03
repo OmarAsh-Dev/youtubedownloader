@@ -84,7 +84,20 @@ def start_download():
 
     def download():
         try:
-            fmt = "bestaudio" if quality == "audio" else f"bestvideo[height={quality}]+bestaudio/best"
+            if quality == "audio":
+                fmt = "bestaudio"
+                postprocessors = [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }
+                ]
+            else:
+                # Exclude Opus audio in video downloads
+                fmt = f"bestvideo[height={quality}]+bestaudio[acodec!=opus]/best[height={quality}]"
+                postprocessors = []
+
             ydl_opts = {
                 "format": fmt,
                 "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
@@ -94,15 +107,16 @@ def start_download():
                 "no_warnings": True,
                 "noplaylist": True,
                 "merge_output_format": "mp4",
+                "postprocessors": postprocessors,
             }
             with YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
 
-            time.sleep(1)  # Give time for disk write completion
+            time.sleep(1)
 
             for file in os.listdir(temp_dir):
                 path = os.path.join(temp_dir, file)
-                if os.path.isfile(path) and os.path.getsize(path) > 1000:  # At least 1KB
+                if os.path.isfile(path) and os.path.getsize(path) > 1000:
                     downloads[download_id]["file_path"] = path
                     downloads[download_id]["status"] = "done"
                     return
@@ -131,7 +145,6 @@ def get_file(download_id):
 
     file_path = data.get("file_path")
 
-    # Wait up to 5 seconds for file finalization
     wait_time = 0
     while (not file_path or not os.path.exists(file_path) or os.path.getsize(file_path) < 1000) and wait_time < 10:
         time.sleep(0.5)
