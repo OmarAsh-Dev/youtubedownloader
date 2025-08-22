@@ -344,7 +344,6 @@ def get_file(download_id):
         shutil.rmtree(os.path.dirname(file_path), ignore_errors=True)
         downloads.pop(download_id, None)
 
-
 if __name__ == "__main__":
     app.run(debug=True)
     
