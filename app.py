@@ -246,11 +246,10 @@ def start_download():
                 "noplaylist": True,
                 "postprocessors": postprocessors,
                 "socket_timeout": 60,
-                "retries": 10,
-                "fragment_retries": 10,
+                "retries": 20,
+                "fragment_retries": 20,
                 "geo_bypass": True,
-                "concurrent_fragments": 6,              # parallel fragment fetches
-                "concurrent_fragment_downloads": 6,
+                "concurrent_fragments": 10  ,              # parallel fragment fetches
             }
             if merge_format and ffmpeg_ok:
                 ydl_opts["merge_output_format"] = merge_format
