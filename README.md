@@ -16,6 +16,12 @@ Supports selecting video quality and downloading audio-only MP3.
 ✅ Video preview embedded before download
 <br>
 ✅ Clean, responsive frontend UI
+<br>
+✅ **Automatic Opus → AAC re-encode** for better compatibility
+<br>
+✅ **Improved resolution unlocking**: tries multiple YouTube clients to fetch higher qualities
+<br>
+✅ **Faster downloads** using concurrent fragment fetching
 
 ---
 
