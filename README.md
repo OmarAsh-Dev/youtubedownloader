@@ -16,6 +16,12 @@ Supports selecting video quality and downloading audio-only MP3.
 ✅ Video preview embedded before download
 <br>
 ✅ Clean, responsive frontend UI
+<br>
+✅ **Automatic Opus → AAC re-encode** for better compatibility
+<br>
+✅ **Improved resolution unlocking**: tries multiple YouTube clients to fetch higher qualities
+<br>
+✅ **Faster downloads** using concurrent fragment fetching
 
 ---
 
@@ -57,8 +63,9 @@ pip install -r requirements.txt
 **`requirements.txt` should contain:**
 
 ```
-Flask
-yt-dlp
+Flask==3.0.0
+yt-dlp==2024.8.6
+gunicorn==21.2.0
 ```
 
 ---
@@ -97,8 +104,27 @@ Visit [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
 ├── static/
 │   └── styles/
 │       └── style.css
-└── requirements.txt
+├── requirements.txt
+├── build.sh
+└── render.yaml
 ```
+
+---
+
+## 🚀 Deployment to Render
+
+This app can be easily deployed to **Render** for free! Render will automatically install FFmpeg and all dependencies.
+
+### Quick Deploy Steps:
+
+1. Push your code to GitHub
+2. Sign up for [Render](https://render.com)
+3. Create a new Web Service and connect your repository
+4. Follow the detailed instructions in [`.agent/workflows/deploy.md`](.agent/workflows/deploy.md)
+
+**Note**: On Render's free tier, the app will spin down after 15 minutes of inactivity. The first request after inactivity may take a few seconds to respond.
+
+For detailed deployment instructions, use the `/deploy` workflow or see [`.agent/workflows/deploy.md`](.agent/workflows/deploy.md).
 
 ---
 
